@@ -74,6 +74,9 @@ class BolsaApp:
         self.lbl_minmax = ttk.Label(stats_frame, text="Min/Max: ---", font=("Arial", 10))
         self.lbl_minmax.pack(side="left", padx=20)
 
+        self.lbl_actualizacion = ttk.Label(stats_frame, text="Última act: ---", font=("Arial", 9, "italic"))
+        self.lbl_actualizacion.pack(side="right", padx=10)
+
         # --- GRÁFICO ---
         self.plot_frame = tk.Frame(self.root)
         self.plot_frame.pack(fill="both", expand=True, padx=10, pady=10)
@@ -101,6 +104,8 @@ class BolsaApp:
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
+        self.root.after(60000, self.ejecutar_consulta)
+
     def update_stats(self):
         if self.df is None: return
         ultimo = self.df.iloc[-1]['valor']
@@ -109,6 +114,9 @@ class BolsaApp:
         
         self.lbl_precio.config(text=f"Precio: ${ultimo:,.2f}")
         self.lbl_minmax.config(text=f"Min: ${minimo:,.2f} | Max: ${maximo:,.2f}")
+
+        hora_actual = datetime.datetime.now().strftime("%H:%M:%S")
+        self.lbl_actualizacion.config(text=f"Última actualización: {hora_actual}")
 
     def update_chart(self, title_id, compra_point=None):
         if self.df is None: return
