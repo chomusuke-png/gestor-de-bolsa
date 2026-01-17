@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import datetime
 import pandas as pd
+import numpy as np
 
 # Gráficos
 from matplotlib.figure import Figure
@@ -9,7 +10,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.dates as mdates
 
 # Importamos nuestros módulos propios
-from . import api   # Importa desde la misma carpeta (src)
+from . import api
 from . import utils
 
 class BolsaApp:
@@ -18,11 +19,12 @@ class BolsaApp:
         self.root.title("Monitor de Bolsa - Finmarkets Modular")
         self.root.geometry("1000x800")
 
-        # Cargar configuración usando el módulo utils
+        # Cargar configuración
         self.archivo_json = "nombres.json"
         self.nombres_conocidos = utils.cargar_configuracion(self.archivo_json)
         
         self.df = None 
+        self.annot = None
 
         self._init_ui()
 
@@ -85,6 +87,7 @@ class BolsaApp:
         self.ax = self.figure.add_subplot(111)
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        self.canvas.mpl_connect("motion_notify_event", self.hover)
 
     def ejecutar_consulta(self):
         id_nota = self.entry_id.get()
@@ -95,12 +98,9 @@ class BolsaApp:
             return
 
         try:
-            # LLAMADA AL MÓDULO API
             self.df = api.obtener_datos_mercado(id_nota, time_span)
-            
             self.update_stats()
             self.update_chart(id_nota)
-
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -141,7 +141,53 @@ class BolsaApp:
             self.ax.plot(fecha, precio, 'ro', label='Compra')
             self.ax.legend()
 
+        # Tooltip
+        self.annot = self.ax.annotate(
+            "", 
+            xy=(0,0), 
+            xytext=(15,15), 
+            textcoords="offset points",
+            bbox=dict(boxstyle="round", fc="w", ec="gray", alpha=0.9),
+            arrowprops=dict(arrowstyle="->")
+        )
+        self.annot.set_visible(False)
+
         self.canvas.draw()
+
+    def hover(self, event):
+        if self.df is None or self.annot is None: return
+        if event.inaxes != self.ax:
+            if self.annot.get_visible():
+                self.annot.set_visible(False)
+                self.canvas.draw_idle()
+            return
+
+        lines = self.ax.get_lines()
+        if not lines: return
+        line = lines[0]
+        x_data = line.get_xdata()
+        
+        try:
+            x_data_nums = mdates.date2num(x_data)
+            idx = np.abs(x_data_nums - event.xdata).argmin()
+        except Exception:
+            return
+        
+        fila = self.df.iloc[idx]
+        fecha = fila['fecha']
+        valor = fila['valor']
+        self.annot.xy = (x_data[idx], valor)
+        
+        if self.df['fecha'].iloc[-1].date() == self.df['fecha'].iloc[0].date():
+            fecha_str = fecha.strftime("%H:%M")
+        else:
+            fecha_str = fecha.strftime("%d/%m/%Y %H:%M")
+            
+        text = f"{fecha_str}\n${valor:,.2f}"
+        self.annot.set_text(text)
+        self.annot.set_visible(True)
+        
+        self.canvas.draw_idle()
 
     def calcular_retorno(self):
         if self.df is None: 
@@ -155,7 +201,6 @@ class BolsaApp:
             messagebox.showerror("Error", "Revisa monto o fecha (YYYY-MM-DD HH:MM)")
             return
 
-        # Lógica de búsqueda (podría ir a api.py, pero aquí está bien por ahora)
         diff = abs(self.df['fecha'] - fecha_obj)
         idx = diff.idxmin()
         fila = self.df.loc[idx]
@@ -170,5 +215,4 @@ class BolsaApp:
         color = "green" if ganancia >= 0 else "red"
         self.lbl_resultado_calc.config(text=f"${ganancia:,.0f} ({pct:.2f}%)", foreground=color)
         
-        # Actualizar gráfico con el punto
         self.update_chart(self.entry_id.get(), compra_point=(fila['fecha'], precio_compra))
