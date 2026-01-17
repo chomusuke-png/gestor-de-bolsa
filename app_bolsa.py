@@ -8,6 +8,7 @@ import json
 import os
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.dates as mdates
 
 class BolsaApp:
     def __init__(self, root):
@@ -15,7 +16,6 @@ class BolsaApp:
         self.root.title("Monitor de Bolsa - Finmarkets")
         self.root.geometry("900x700")
 
-        # --- CARGA DE NOMBRES DESDE JSON ---
         self.archivo_json = "nombres.json"
         self.nombres_conocidos = self.cargar_nombres()
 
@@ -62,7 +62,6 @@ class BolsaApp:
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
     def cargar_nombres(self):
-        """Carga el diccionario desde el archivo JSON si existe"""
         if os.path.exists(self.archivo_json):
             try:
                 with open(self.archivo_json, "r", encoding="utf-8") as f:
@@ -71,7 +70,6 @@ class BolsaApp:
                 messagebox.showwarning("Aviso", f"Error leyendo nombres.json: {e}")
                 return {}
         else:
-            # Si no existe, retorna diccionario vacío (o podrías crearlo aquí)
             return {}
 
     def fetch_data(self):
@@ -127,14 +125,27 @@ class BolsaApp:
 
     def update_chart(self, df, title_id):
         self.ax.clear()
-        
-        # Busca el nombre en el diccionario cargado desde JSON
+
         nombre_mostrar = self.nombres_conocidos.get(title_id, f"ID: {title_id}")
 
         self.ax.plot(df['fecha'], df['valor'], color='#17375e', linewidth=1.5)
+        
+        # Detección inteligente de formato
+        if df['fecha'].iloc[-1].date() == df['fecha'].iloc[0].date():
+             # Si todos los datos son del mismo día, mostrar Hora:Minuto
+            myFmt = mdates.DateFormatter('%H:%M')
+        else:
+             # Si hay varios días, mostrar dd/mm/yyyy
+            myFmt = mdates.DateFormatter('%d/%m/%Y')
+            
+        self.ax.xaxis.set_major_formatter(myFmt)
+        
+        # Rota las fechas para que no se amontonen
+        self.figure.autofmt_xdate(rotation=45) 
+
         self.ax.set_title(f"Instrumento: {nombre_mostrar}", fontsize=12, fontweight='bold')
         self.ax.grid(True, linestyle='--', alpha=0.6)
-        self.ax.tick_params(axis='x', rotation=45, labelsize=8)
+        self.ax.tick_params(axis='x', labelsize=8)
         
         self.figure.tight_layout()
         self.canvas.draw()
