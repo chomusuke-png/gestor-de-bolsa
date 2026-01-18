@@ -24,19 +24,16 @@ class BolsaApp:
         self._init_ui()
 
     def _init_ui(self):
-        # Configurar grid principal para que se expanda bien
+        # Configurar grid principal
         self.root.grid_columnconfigure(0, weight=1)
-        self.root.grid_rowconfigure(2, weight=1) # El gráfico (fila 2) se expande
+        self.root.grid_rowconfigure(2, weight=1) 
 
-        # --- 1. PANEL DE CONTROL ---
-        # Usamos Frame normal y simulamos el título con un Label
+        # PANEL DE CONTROL
         control_frame = ctk.CTkFrame(self.root)
         control_frame.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
         
-        # Título del bloque
         ctk.CTkLabel(control_frame, text="Configuración de Consulta", font=("Roboto", 14, "bold")).grid(row=0, column=0, columnspan=5, pady=(10, 5), sticky="w", padx=15)
 
-        # Inputs
         ctk.CTkLabel(control_frame, text="ID Notación:").grid(row=1, column=0, padx=10, pady=10)
         self.entry_id = ctk.CTkEntry(control_frame, width=140, placeholder_text="Ej: 77447")
         self.entry_id.insert(0, "77447") 
@@ -50,7 +47,7 @@ class BolsaApp:
         self.btn_run = ctk.CTkButton(control_frame, text="Consultar Datos", command=self.ejecutar_consulta, fg_color="#1f6aa5")
         self.btn_run.grid(row=1, column=4, padx=20, pady=10)
 
-        # --- 2. CALCULADORA ---
+        # CALCULADORA
         calc_frame = ctk.CTkFrame(self.root)
         calc_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
 
@@ -73,30 +70,37 @@ class BolsaApp:
         self.lbl_resultado_calc = ctk.CTkLabel(calc_frame, text="---", font=("Roboto", 16, "bold"))
         self.lbl_resultado_calc.grid(row=1, column=6, padx=20, pady=10)
 
-        # --- 3. ESTADÍSTICAS Y GRÁFICO ---
-        # Contenedor principal para stats y gráfico
+        # ESTADÍSTICAS Y GRÁFICO
         plot_container = ctk.CTkFrame(self.root)
         plot_container.grid(row=2, column=0, padx=20, pady=(10, 20), sticky="nsew")
-        plot_container.grid_rowconfigure(1, weight=1) # El gráfico se expande
+        plot_container.grid_rowconfigure(1, weight=1)
         plot_container.grid_columnconfigure(0, weight=1)
 
-        # Barra de estadísticas (dentro del container)
-        stats_frame = ctk.CTkFrame(plot_container, fg_color="transparent") # Transparente para integrarse
+        # Barra de estadísticas
+        stats_frame = ctk.CTkFrame(plot_container, fg_color="transparent")
         stats_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         
         self.lbl_precio = ctk.CTkLabel(stats_frame, text="Precio: ---", font=("Roboto", 20, "bold"))
         self.lbl_precio.pack(side="left", padx=20)
+        
         self.lbl_minmax = ctk.CTkLabel(stats_frame, text="Min/Max: ---", font=("Roboto", 12))
         self.lbl_minmax.pack(side="left", padx=20)
+        
+        # LABEL DE ACTUALIZACIÓN
         self.lbl_actualizacion = ctk.CTkLabel(stats_frame, text="Última act: ---", font=("Roboto", 10, "italic"), text_color="gray")
         self.lbl_actualizacion.pack(side="right", padx=10)
 
-        # Frame interno para el Canvas de Matplotlib
+        # LABEL DE ESTADO DEL MERCADO
+        self.lbl_estado_mercado = ctk.CTkLabel(stats_frame, text="---", font=("Roboto", 12, "bold"))
+        self.lbl_estado_mercado.pack(side="right", padx=20)
+
+        # Gráfico
         self.chart_frame = ctk.CTkFrame(plot_container)
         self.chart_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         
-        # Instanciamos nuestra clase de gráfico
         self.chart_widget = BolsaChart(self.chart_frame)
+
+        self._actualizar_estado_mercado()
 
     def _set_hoy(self):
         self.entry_fecha.delete(0, "end")
@@ -121,6 +125,7 @@ class BolsaApp:
             messagebox.showerror("Error", str(e))
 
         self.root.after(60000, self.ejecutar_consulta)
+        self._actualizar_estado_mercado()
 
     def update_stats(self):
         if self.df is None: return
@@ -134,13 +139,39 @@ class BolsaApp:
         hora_actual = datetime.datetime.now().strftime("%H:%M:%S")
         self.lbl_actualizacion.configure(text=f"Última actualización: {hora_actual}")
 
+    def _actualizar_estado_mercado(self):
+        now = datetime.datetime.now().time()
+        
+        # Definición de horarios
+        start_pre = datetime.time(8, 30)
+        start_open = datetime.time(9, 0)
+        start_close = datetime.time(17, 30)
+        end_market = datetime.time(17, 45)
+
+        if start_pre <= now < start_open:
+            texto = "🟡 Pre-apertura"
+            color = "#E5C07B"
+        elif start_open <= now < start_close:
+            texto = "🟢 Mercado Abierto"
+            color = "#98C379"
+        elif start_close <= now < end_market:
+            texto = "🔴 Cierre (Subasta)"
+            color = "#E06C75"
+        else:
+            texto = "🌑 Mercado Cerrado"
+            color = "gray"
+
+        self.lbl_estado_mercado.configure(text=texto, text_color=color)
+
     def calcular_retorno(self):
         if self.df is None: 
             messagebox.showwarning("Error", "Primero carga datos.")
             return
         
         try:
-            monto = float(self.entry_monto.get())
+            monto_str = self.entry_monto.get()
+            if not monto_str: raise ValueError
+            monto = float(monto_str)
             fecha_obj = datetime.datetime.strptime(self.entry_fecha.get(), "%Y-%m-%d %H:%M")
         except ValueError:
             messagebox.showerror("Error", "Revisa monto o fecha")
@@ -154,7 +185,6 @@ class BolsaApp:
         color = "#2cc985" if ganancia >= 0 else "#ff4d4d"
         self.lbl_resultado_calc.configure(text=f"${ganancia:,.0f} ({pct:.2f}%)", text_color=color)
         
-        # Actualizar gráfico
         nombre = self.nombres_conocidos.get(self.entry_id.get(), "")
         self.chart_widget.draw_chart(
             self.df, 
