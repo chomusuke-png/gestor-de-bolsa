@@ -1,65 +1,90 @@
+import customtkinter as ctk
 import tkinter as tk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.dates as mdates
 import numpy as np
 
+# Colores para el tema oscuro
+BG_COLOR = "#2b2b2b"  # Fondo del gráfico
+TEXT_COLOR = "white"  # Texto de ejes y títulos
+LINE_COLOR = "#3B8ED0" # Azul CustomTkinter
+
 class BolsaChart:
     def __init__(self, parent_frame):
-        # Configuración inicial del gráfico
-        self.figure = Figure(figsize=(5, 4), dpi=100)
+        # Configuración inicial del gráfico con colores oscuros
+        self.figure = Figure(figsize=(5, 4), dpi=100, facecolor=BG_COLOR)
         self.ax = self.figure.add_subplot(111)
+        
+        # Configurar colores iniciales del eje
+        self.ax.set_facecolor(BG_COLOR)
+        self.ax.tick_params(axis='x', colors=TEXT_COLOR)
+        self.ax.tick_params(axis='y', colors=TEXT_COLOR)
+        self.ax.yaxis.label.set_color(TEXT_COLOR)
+        self.ax.xaxis.label.set_color(TEXT_COLOR)
+        
+        # Bordes (spines) blancos
+        for spine in self.ax.spines.values():
+            spine.set_color(TEXT_COLOR)
+
         self.canvas = FigureCanvasTkAgg(self.figure, master=parent_frame)
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
         
         # Conectamos el evento hover
         self.canvas.mpl_connect("motion_notify_event", self.hover)
         
-        # Variables de estado
         self.df = None
         self.annot = None
 
     def draw_chart(self, df, title, compra_point=None):
-        """Dibuja el gráfico principal y configura la anotación oculta"""
         self.df = df
         if self.df is None: return
 
         self.ax.clear()
+        
+        # Re-aplicar estilos oscuros tras el clear()
+        self.ax.set_facecolor(BG_COLOR)
+        self.ax.grid(True, linestyle='--', alpha=0.3, color="gray") # Grid más sutil
 
         # Dibujar línea
-        self.ax.plot(self.df['fecha'], self.df['valor'], color='#17375e', linewidth=1.5)
+        self.ax.plot(self.df['fecha'], self.df['valor'], color=LINE_COLOR, linewidth=2)
         
-        # Formato Fechas (Eje X)
+        # Formato Fechas
         if self.df['fecha'].iloc[-1].date() == self.df['fecha'].iloc[0].date():
             self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         else:
             self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%Y'))
         
         self.figure.autofmt_xdate(rotation=45)
-        self.ax.set_title(f"Instrumento: {title}", fontweight='bold')
-        self.ax.grid(True, linestyle='--', alpha=0.6)
+        
+        # Título y etiquetas en blanco
+        self.ax.set_title(f"Instrumento: {title}", fontweight='bold', color=TEXT_COLOR)
+        self.ax.tick_params(axis='both', colors=TEXT_COLOR)
+        for spine in self.ax.spines.values(): spine.set_color(TEXT_COLOR)
 
-        # Dibujar punto de compra (si existe)
+        # Punto de compra
         if compra_point:
             fecha, precio = compra_point
-            self.ax.plot(fecha, precio, 'ro', label='Compra')
-            self.ax.legend()
+            self.ax.plot(fecha, precio, 'o', color="#ff4d4d", label='Compra', markersize=8)
+            # Leyenda con texto blanco
+            legend = self.ax.legend(facecolor=BG_COLOR, edgecolor=TEXT_COLOR)
+            for text in legend.get_texts(): text.set_color(TEXT_COLOR)
 
-        # Crear la anotación (tooltip) oculta inicial
+        # Tooltip oculto
         self.annot = self.ax.annotate(
             "", 
             xy=(0,0), 
             xytext=(15,15), 
             textcoords="offset points",
-            bbox=dict(boxstyle="round", fc="w", ec="gray", alpha=0.9),
-            arrowprops=dict(arrowstyle="->")
+            bbox=dict(boxstyle="round", fc="#1f1f1f", ec="white", alpha=0.9), # Fondo oscuro, borde blanco
+            arrowprops=dict(arrowstyle="->", color="white"),
+            color="white" # Texto blanco
         )
         self.annot.set_visible(False)
 
         self.canvas.draw()
 
     def hover(self, event):
-        """Maneja el evento del mouse para mostrar el tooltip"""
         if self.df is None or self.annot is None: return
         
         if event.inaxes != self.ax:
@@ -73,21 +98,16 @@ class BolsaChart:
         line = lines[0]
         x_data = line.get_xdata()
 
-        # --- CORRECCIÓN CRÍTICA DE FECHAS ---
         try:
-            # Convertimos fechas a números para poder restar con event.xdata
             x_data_nums = mdates.date2num(x_data)
             idx = np.abs(x_data_nums - event.xdata).argmin()
         except Exception:
             return 
-        # ------------------------------------
 
         fila = self.df.iloc[idx]
         fecha = fila['fecha']
         valor = fila['valor']
 
-        # Actualizamos posición del tooltip
-        # Usamos x_data[idx] (fecha original) porque annotate lo entiende
         self.annot.xy = (x_data[idx], valor)
 
         if self.df['fecha'].iloc[-1].date() == self.df['fecha'].iloc[0].date():

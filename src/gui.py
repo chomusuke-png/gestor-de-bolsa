@@ -1,9 +1,9 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
+import customtkinter as ctk
+from tkinter import messagebox
 import datetime
 import pandas as pd
 
-# Importamos nuestros módulos propios
+# Importamos módulos propios
 from . import api
 from . import utils
 from .chart_widget import BolsaChart
@@ -11,8 +11,8 @@ from .chart_widget import BolsaChart
 class BolsaApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Monitor de Bolsa - Finmarkets Modular")
-        self.root.geometry("1000x800")
+        self.root.title("Monitor de Bolsa - Finmarkets Pro")
+        self.root.geometry("1100x900")
 
         self.archivo_json = "nombres.json"
         self.nombres_conocidos = utils.cargar_configuracion(self.archivo_json)
@@ -23,60 +23,83 @@ class BolsaApp:
         self._init_ui()
 
     def _init_ui(self):
-        # --- PANEL DE CONTROL ---
-        control_frame = ttk.LabelFrame(self.root, text="1. Configuración de Consulta", padding=10)
-        control_frame.pack(fill="x", padx=10, pady=5)
+        # Configurar grid principal para que se expanda bien
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_rowconfigure(2, weight=1) # El gráfico (fila 2) se expande
 
-        ttk.Label(control_frame, text="ID Notación:").grid(row=0, column=0, padx=5)
-        self.entry_id = ttk.Entry(control_frame, width=15)
+        # --- 1. PANEL DE CONTROL ---
+        # Usamos Frame normal y simulamos el título con un Label
+        control_frame = ctk.CTkFrame(self.root)
+        control_frame.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
+        
+        # Título del bloque
+        ctk.CTkLabel(control_frame, text="Configuración de Consulta", font=("Roboto", 14, "bold")).grid(row=0, column=0, columnspan=5, pady=(10, 5), sticky="w", padx=15)
+
+        # Inputs
+        ctk.CTkLabel(control_frame, text="ID Notación:").grid(row=1, column=0, padx=10, pady=10)
+        self.entry_id = ctk.CTkEntry(control_frame, width=140, placeholder_text="Ej: 77447")
         self.entry_id.insert(0, "77447") 
-        self.entry_id.grid(row=0, column=1, padx=5)
+        self.entry_id.grid(row=1, column=1, padx=10, pady=10)
 
-        ttk.Label(control_frame, text="Periodo:").grid(row=0, column=2, padx=5)
-        self.entry_span = ttk.Combobox(control_frame, values=["1D", "5D", "1M", "3M", "6M", "1Y"], width=10)
-        self.entry_span.current(0) 
-        self.entry_span.grid(row=0, column=3, padx=5)
+        ctk.CTkLabel(control_frame, text="Periodo:").grid(row=1, column=2, padx=10, pady=10)
+        self.entry_span = ctk.CTkComboBox(control_frame, values=["1D", "5D", "1M", "3M", "6M", "1Y"], width=100)
+        self.entry_span.set("1D") 
+        self.entry_span.grid(row=1, column=3, padx=10, pady=10)
 
-        self.btn_run = ttk.Button(control_frame, text="Consultar Datos", command=self.ejecutar_consulta)
-        self.btn_run.grid(row=0, column=4, padx=15)
+        self.btn_run = ctk.CTkButton(control_frame, text="Consultar Datos", command=self.ejecutar_consulta, fg_color="#1f6aa5")
+        self.btn_run.grid(row=1, column=4, padx=20, pady=10)
 
-        # --- PANEL CALCULADORA ---
-        calc_frame = ttk.LabelFrame(self.root, text="2. Calculadora de Inversión", padding=10)
-        calc_frame.pack(fill="x", padx=10, pady=5)
+        # --- 2. CALCULADORA ---
+        calc_frame = ctk.CTkFrame(self.root)
+        calc_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
 
-        ttk.Label(calc_frame, text="Monto ($):").grid(row=0, column=0, padx=5)
-        self.entry_monto = ttk.Entry(calc_frame, width=15)
-        self.entry_monto.grid(row=0, column=1, padx=5)
+        ctk.CTkLabel(calc_frame, text="Calculadora de Inversión", font=("Roboto", 14, "bold")).grid(row=0, column=0, columnspan=7, pady=(10, 5), sticky="w", padx=15)
 
-        ttk.Label(calc_frame, text="Fecha (YYYY-MM-DD HH:MM):").grid(row=0, column=2, padx=5)
-        self.entry_fecha = ttk.Entry(calc_frame, width=25)
-        self.entry_fecha.grid(row=0, column=3, padx=5)
+        ctk.CTkLabel(calc_frame, text="Monto ($):").grid(row=1, column=0, padx=10, pady=10)
+        self.entry_monto = ctk.CTkEntry(calc_frame, width=140, placeholder_text="100000")
+        self.entry_monto.grid(row=1, column=1, padx=10, pady=10)
+
+        ctk.CTkLabel(calc_frame, text="Fecha (YYYY-MM-DD HH:MM):").grid(row=1, column=2, padx=10, pady=10)
+        self.entry_fecha = ctk.CTkEntry(calc_frame, width=200)
+        self.entry_fecha.grid(row=1, column=3, padx=10, pady=10)
         
-        ttk.Button(calc_frame, text="Hoy", width=5, 
-                   command=lambda: self.entry_fecha.insert(0, datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
-                   ).grid(row=0, column=4, padx=2)
+        ctk.CTkButton(calc_frame, text="Hoy", width=60, 
+                   command=lambda: self._set_hoy()
+                   ).grid(row=1, column=4, padx=5, pady=10)
 
-        ttk.Button(calc_frame, text="Calcular", command=self.calcular_retorno).grid(row=0, column=5, padx=15)
+        ctk.CTkButton(calc_frame, text="Calcular", width=100, command=self.calcular_retorno, fg_color="green").grid(row=1, column=5, padx=20, pady=10)
         
-        self.lbl_resultado_calc = ttk.Label(calc_frame, text="---", font=("Arial", 11, "bold"))
-        self.lbl_resultado_calc.grid(row=0, column=6, padx=10)
+        self.lbl_resultado_calc = ctk.CTkLabel(calc_frame, text="---", font=("Roboto", 16, "bold"))
+        self.lbl_resultado_calc.grid(row=1, column=6, padx=20, pady=10)
 
-        # --- ESTADÍSTICAS ---
-        stats_frame = ttk.LabelFrame(self.root, text="Estadísticas", padding=10)
-        stats_frame.pack(fill="x", padx=10, pady=5)
+        # --- 3. ESTADÍSTICAS Y GRÁFICO ---
+        # Contenedor principal para stats y gráfico
+        plot_container = ctk.CTkFrame(self.root)
+        plot_container.grid(row=2, column=0, padx=20, pady=(10, 20), sticky="nsew")
+        plot_container.grid_rowconfigure(1, weight=1) # El gráfico se expande
+        plot_container.grid_columnconfigure(0, weight=1)
+
+        # Barra de estadísticas (dentro del container)
+        stats_frame = ctk.CTkFrame(plot_container, fg_color="transparent") # Transparente para integrarse
+        stats_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         
-        self.lbl_precio = ttk.Label(stats_frame, text="Precio: ---", font=("Arial", 14, "bold"))
+        self.lbl_precio = ctk.CTkLabel(stats_frame, text="Precio: ---", font=("Roboto", 20, "bold"))
         self.lbl_precio.pack(side="left", padx=20)
-        self.lbl_minmax = ttk.Label(stats_frame, text="Min/Max: ---", font=("Arial", 10))
+        self.lbl_minmax = ctk.CTkLabel(stats_frame, text="Min/Max: ---", font=("Roboto", 12))
         self.lbl_minmax.pack(side="left", padx=20)
-
-        self.lbl_actualizacion = ttk.Label(stats_frame, text="Última act: ---", font=("Arial", 9, "italic"))
+        self.lbl_actualizacion = ctk.CTkLabel(stats_frame, text="Última act: ---", font=("Roboto", 10, "italic"), text_color="gray")
         self.lbl_actualizacion.pack(side="right", padx=10)
 
-        self.plot_frame = tk.Frame(self.root)
-        self.plot_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        # Frame interno para el Canvas de Matplotlib
+        self.chart_frame = ctk.CTkFrame(plot_container)
+        self.chart_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         
-        self.chart_widget = BolsaChart(self.plot_frame)
+        # Instanciamos nuestra clase de gráfico
+        self.chart_widget = BolsaChart(self.chart_frame)
+
+    def _set_hoy(self):
+        self.entry_fecha.delete(0, "end")
+        self.entry_fecha.insert(0, datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 
     def ejecutar_consulta(self):
         id_nota = self.entry_id.get()
@@ -88,7 +111,6 @@ class BolsaApp:
 
         try:
             self.df = api.obtener_datos_mercado(id_nota, time_span)
-            
             self.update_stats()
             
             nombre = self.nombres_conocidos.get(id_nota, f"ID: {id_nota}")
@@ -105,11 +127,11 @@ class BolsaApp:
         maximo = self.df['valor'].max()
         minimo = self.df['valor'].min()
         
-        self.lbl_precio.config(text=f"Precio: ${ultimo:,.2f}")
-        self.lbl_minmax.config(text=f"Min: ${minimo:,.2f} | Max: ${maximo:,.2f}")
+        self.lbl_precio.configure(text=f"Precio: ${ultimo:,.2f}")
+        self.lbl_minmax.configure(text=f"Min: ${minimo:,.2f} | Max: ${maximo:,.2f}")
 
         hora_actual = datetime.datetime.now().strftime("%H:%M:%S")
-        self.lbl_actualizacion.config(text=f"Última actualización: {hora_actual}")
+        self.lbl_actualizacion.configure(text=f"Última actualización: {hora_actual}")
 
     def calcular_retorno(self):
         if self.df is None: 
@@ -117,7 +139,9 @@ class BolsaApp:
             return
         
         try:
-            monto = float(self.entry_monto.get())
+            monto_str = self.entry_monto.get()
+            if not monto_str: raise ValueError
+            monto = float(monto_str)
             fecha_obj = datetime.datetime.strptime(self.entry_fecha.get(), "%Y-%m-%d %H:%M")
         except ValueError:
             messagebox.showerror("Error", "Revisa monto o fecha (YYYY-MM-DD HH:MM)")
@@ -134,8 +158,8 @@ class BolsaApp:
         ganancia = (unidades * precio_actual) - monto
         pct = ((precio_actual - precio_compra) / precio_compra) * 100
 
-        color = "green" if ganancia >= 0 else "red"
-        self.lbl_resultado_calc.config(text=f"${ganancia:,.0f} ({pct:.2f}%)", foreground=color)
+        color = "#2cc985" if ganancia >= 0 else "#ff4d4d" # Colores brillantes para modo oscuro
+        self.lbl_resultado_calc.configure(text=f"${ganancia:,.0f} ({pct:.2f}%)", text_color=color)
         
         nombre = self.nombres_conocidos.get(self.entry_id.get(), "")
         self.chart_widget.draw_chart(self.df, nombre, compra_point=(fila['fecha'], precio_compra))
