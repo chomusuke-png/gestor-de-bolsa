@@ -2,16 +2,11 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import datetime
 import pandas as pd
-import numpy as np
-
-# Gráficos
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.dates as mdates
 
 # Importamos nuestros módulos propios
 from . import api
 from . import utils
+from .chart_widget import BolsaChart
 
 class BolsaApp:
     def __init__(self, root):
@@ -19,12 +14,11 @@ class BolsaApp:
         self.root.title("Monitor de Bolsa - Finmarkets Modular")
         self.root.geometry("1000x800")
 
-        # Cargar configuración
         self.archivo_json = "nombres.json"
         self.nombres_conocidos = utils.cargar_configuracion(self.archivo_json)
         
         self.df = None 
-        self.annot = None
+        self.chart_widget = None 
 
         self._init_ui()
 
@@ -79,15 +73,10 @@ class BolsaApp:
         self.lbl_actualizacion = ttk.Label(stats_frame, text="Última act: ---", font=("Arial", 9, "italic"))
         self.lbl_actualizacion.pack(side="right", padx=10)
 
-        # --- GRÁFICO ---
         self.plot_frame = tk.Frame(self.root)
         self.plot_frame.pack(fill="both", expand=True, padx=10, pady=10)
-
-        self.figure = Figure(figsize=(5, 4), dpi=100)
-        self.ax = self.figure.add_subplot(111)
-        self.canvas = FigureCanvasTkAgg(self.figure, master=self.plot_frame)
-        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-        self.canvas.mpl_connect("motion_notify_event", self.hover)
+        
+        self.chart_widget = BolsaChart(self.plot_frame)
 
     def ejecutar_consulta(self):
         id_nota = self.entry_id.get()
@@ -99,8 +88,12 @@ class BolsaApp:
 
         try:
             self.df = api.obtener_datos_mercado(id_nota, time_span)
+            
             self.update_stats()
-            self.update_chart(id_nota)
+            
+            nombre = self.nombres_conocidos.get(id_nota, f"ID: {id_nota}")
+            self.chart_widget.draw_chart(self.df, nombre)
+
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -117,77 +110,6 @@ class BolsaApp:
 
         hora_actual = datetime.datetime.now().strftime("%H:%M:%S")
         self.lbl_actualizacion.config(text=f"Última actualización: {hora_actual}")
-
-    def update_chart(self, title_id, compra_point=None):
-        if self.df is None: return
-        self.ax.clear()
-
-        nombre = self.nombres_conocidos.get(title_id, f"ID: {title_id}")
-        self.ax.plot(self.df['fecha'], self.df['valor'], color='#17375e', linewidth=1.5)
-        
-        # Formato Fechas
-        if self.df['fecha'].iloc[-1].date() == self.df['fecha'].iloc[0].date():
-            self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-        else:
-            self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%Y'))
-        
-        self.figure.autofmt_xdate(rotation=45)
-        self.ax.set_title(f"Instrumento: {nombre}", fontweight='bold')
-        self.ax.grid(True, linestyle='--', alpha=0.6)
-
-        # Dibujar punto de compra si existe
-        if compra_point:
-            fecha, precio = compra_point
-            self.ax.plot(fecha, precio, 'ro', label='Compra')
-            self.ax.legend()
-
-        # Tooltip
-        self.annot = self.ax.annotate(
-            "", 
-            xy=(0,0), 
-            xytext=(15,15), 
-            textcoords="offset points",
-            bbox=dict(boxstyle="round", fc="w", ec="gray", alpha=0.9),
-            arrowprops=dict(arrowstyle="->")
-        )
-        self.annot.set_visible(False)
-
-        self.canvas.draw()
-
-    def hover(self, event):
-        if self.df is None or self.annot is None: return
-        if event.inaxes != self.ax:
-            if self.annot.get_visible():
-                self.annot.set_visible(False)
-                self.canvas.draw_idle()
-            return
-
-        lines = self.ax.get_lines()
-        if not lines: return
-        line = lines[0]
-        x_data = line.get_xdata()
-        
-        try:
-            x_data_nums = mdates.date2num(x_data)
-            idx = np.abs(x_data_nums - event.xdata).argmin()
-        except Exception:
-            return
-        
-        fila = self.df.iloc[idx]
-        fecha = fila['fecha']
-        valor = fila['valor']
-        self.annot.xy = (x_data[idx], valor)
-        
-        if self.df['fecha'].iloc[-1].date() == self.df['fecha'].iloc[0].date():
-            fecha_str = fecha.strftime("%H:%M")
-        else:
-            fecha_str = fecha.strftime("%d/%m/%Y %H:%M")
-            
-        text = f"{fecha_str}\n${valor:,.2f}"
-        self.annot.set_text(text)
-        self.annot.set_visible(True)
-        
-        self.canvas.draw_idle()
 
     def calcular_retorno(self):
         if self.df is None: 
@@ -215,4 +137,5 @@ class BolsaApp:
         color = "green" if ganancia >= 0 else "red"
         self.lbl_resultado_calc.config(text=f"${ganancia:,.0f} ({pct:.2f}%)", foreground=color)
         
-        self.update_chart(self.entry_id.get(), compra_point=(fila['fecha'], precio_compra))
+        nombre = self.nombres_conocidos.get(self.entry_id.get(), "")
+        self.chart_widget.draw_chart(self.df, nombre, compra_point=(fila['fecha'], precio_compra))
