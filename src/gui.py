@@ -6,6 +6,7 @@ import pandas as pd
 # Importamos módulos propios
 from . import api
 from . import utils
+from . import logic
 from .chart_widget import BolsaChart
 
 class BolsaApp:
@@ -139,27 +140,24 @@ class BolsaApp:
             return
         
         try:
-            monto_str = self.entry_monto.get()
-            if not monto_str: raise ValueError
-            monto = float(monto_str)
+            monto = float(self.entry_monto.get())
             fecha_obj = datetime.datetime.strptime(self.entry_fecha.get(), "%Y-%m-%d %H:%M")
         except ValueError:
-            messagebox.showerror("Error", "Revisa monto o fecha (YYYY-MM-DD HH:MM)")
+            messagebox.showerror("Error", "Revisa monto o fecha")
             return
 
-        diff = abs(self.df['fecha'] - fecha_obj)
-        idx = diff.idxmin()
-        fila = self.df.loc[idx]
+        resultados = logic.calcular_ganancia_historica(self.df, monto, fecha_obj)
         
-        precio_compra = fila['valor']
-        precio_actual = self.df.iloc[-1]['valor']
+        ganancia = resultados["ganancia"]
+        pct = resultados["porcentaje"]
         
-        unidades = monto / precio_compra
-        ganancia = (unidades * precio_actual) - monto
-        pct = ((precio_actual - precio_compra) / precio_compra) * 100
-
-        color = "#2cc985" if ganancia >= 0 else "#ff4d4d" # Colores brillantes para modo oscuro
+        color = "#2cc985" if ganancia >= 0 else "#ff4d4d"
         self.lbl_resultado_calc.configure(text=f"${ganancia:,.0f} ({pct:.2f}%)", text_color=color)
         
+        # Actualizar gráfico
         nombre = self.nombres_conocidos.get(self.entry_id.get(), "")
-        self.chart_widget.draw_chart(self.df, nombre, compra_point=(fila['fecha'], precio_compra))
+        self.chart_widget.draw_chart(
+            self.df, 
+            nombre, 
+            compra_point=(resultados["fecha_encontrada"], resultados["precio_compra"])
+        )
