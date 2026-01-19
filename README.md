@@ -1,3 +1,5 @@
+v1.0.1
+
 ### Para compilar y crear el .exe
 ```shortcode
 pip install pyinstaller

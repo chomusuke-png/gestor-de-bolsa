@@ -47,6 +47,9 @@ class BolsaApp:
         self.btn_run = ctk.CTkButton(control_frame, text="Consultar Datos", command=self.ejecutar_consulta, fg_color="#1f6aa5")
         self.btn_run.grid(row=1, column=4, padx=20, pady=10)
 
+        self.btn_ver_lista = ctk.CTkButton(control_frame, text="Ver Lista", command=self.abrir_lista_codigos, fg_color="#444444")
+        self.btn_ver_lista.grid(row=1, column=5, padx=20, pady=10)
+
         # CALCULADORA
         calc_frame = ctk.CTkFrame(self.root)
         calc_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
@@ -126,6 +129,52 @@ class BolsaApp:
 
         self.root.after(60000, self.ejecutar_consulta)
         self._actualizar_estado_mercado()
+    
+    def abrir_lista_codigos(self):
+        """Abre una ventana flotante con la lista de códigos."""
+        ventana_lista = ctk.CTkToplevel(self.root)
+        ventana_lista.title("Códigos Guardados")
+        ventana_lista.geometry("400x500")
+        
+        ventana_lista.attributes("-topmost", True)
+        
+        lbl_titulo = ctk.CTkLabel(ventana_lista, text="Selecciona un Instrumento", font=("Roboto", 16, "bold"))
+        lbl_titulo.pack(pady=10)
+
+        scroll_frame = ctk.CTkScrollableFrame(ventana_lista, width=350, height=400)
+        scroll_frame.pack(padx=10, pady=10, fill="both", expand=True)
+
+        ctk.CTkLabel(scroll_frame, text="ID", font=("Roboto", 12, "bold")).grid(row=0, column=0, padx=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text="NOMBRE / NEMO", font=("Roboto", 12, "bold")).grid(row=0, column=1, padx=5, sticky="w")
+
+        row = 1
+        for id_nota, nombre in self.nombres_conocidos.items():
+            btn_id = ctk.CTkButton(
+                scroll_frame, 
+                text=id_nota, 
+                width=70, 
+                height=25,
+                fg_color="transparent", 
+                border_width=1,
+                border_color="gray",
+                hover_color="#333333",
+                command=lambda i=id_nota, w=ventana_lista: self._seleccionar_desde_lista(i, w)
+            )
+            btn_id.grid(row=row, column=0, padx=5, pady=3)
+
+            lbl_nombre = ctk.CTkLabel(scroll_frame, text=nombre, anchor="w")
+            lbl_nombre.grid(row=row, column=1, padx=10, pady=3, sticky="w")
+            
+            row += 1
+
+    def _seleccionar_desde_lista(self, id_nota, ventana):
+        """Callback al hacer clic en un botón de la lista."""
+        self.entry_id.delete(0, "end")
+        self.entry_id.insert(0, id_nota)
+        
+        self.ejecutar_consulta() 
+        
+        ventana.destroy()
 
     def update_stats(self):
         if self.df is None: return
