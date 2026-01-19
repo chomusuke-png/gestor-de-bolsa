@@ -5,10 +5,12 @@ import sys
 def cargar_configuracion(archivo_json):
     if getattr(sys, 'frozen', False):
         base_path = sys._MEIPASS
+        ruta_carpeta = os.path.join(base_path, "assets")
     else:
-        base_path = os.path.abspath(".")
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ruta_carpeta = os.path.join(base_path, "assets")
 
-    ruta_completa = os.path.join(base_path, archivo_json)
+    ruta_completa = os.path.join(ruta_carpeta, archivo_json)
 
     if os.path.exists(ruta_completa):
         try:
@@ -18,7 +20,9 @@ def cargar_configuracion(archivo_json):
         except Exception as e:
             print(f"Error leyendo {archivo_json}: {e}")
             return {}
-    return {}
+    else:
+        print(f"Advertencia: No se encontró {ruta_completa}")
+        return {}
 
 def cargar_tema(archivo_json="theme.json"):
     raw_theme = cargar_configuracion(archivo_json)

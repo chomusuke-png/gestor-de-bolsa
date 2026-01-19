@@ -3,7 +3,7 @@ v1.0.1
 ### Para compilar y crear el .exe
 ```shortcode
 pip install pyinstaller
-pyinstaller --noconsole --onefile --add-data "nombres.json;." main.py
+pyinstaller --noconsole --onefile --name "gestor-de-bolsa-v1.0.1" --add-data "assets;assets" main.py
 ```
 
 ### ¿Cómo usarlo?

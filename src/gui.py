@@ -5,17 +5,17 @@ import datetime
 from . import api
 from . import utils
 from . import logic
+from .config import APP_TITLE, WINDOW_SIZE
 from .ui.control_panel import ControlPanel
 from .ui.calculator import CalculatorPanel
 from .ui.info_bar import InfoBar
-# Asumiendo que moviste chart_widget.py a src/ui/chart.py, si no, ajusta el import
 from .ui.chart import BolsaChart 
 
 class BolsaApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Monitor de Bolsa - Finmarkets Pro")
-        self.root.geometry("1100x900")
+        self.root.title(APP_TITLE)
+        self.root.geometry(WINDOW_SIZE)
 
         # Carga de Datos y Configuración
         self.nombres_conocidos = utils.cargar_configuracion("nombres.json")

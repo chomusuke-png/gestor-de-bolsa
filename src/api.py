@@ -2,15 +2,10 @@ import requests
 import re
 import pandas as pd
 import datetime
-
-BASE_URL = "https://bancoestado.finmarketslive.cl/www/chart/datachart.php"
+from .config import API_URL
 
 def obtener_datos_mercado(id_nota, time_span):
-    """
-    Descarga y procesa los datos del mercado.
-    Retorna: pandas.DataFrame o lanza Exception si falla.
-    """
-    url = f"{BASE_URL}?ID_NOTATION={id_nota}&TIME_SPAN={time_span}"
+    url = f"{API_URL}?ID_NOTATION={id_nota}&TIME_SPAN={time_span}"
     
     response = requests.get(url, timeout=10)
     if response.status_code != 200:
