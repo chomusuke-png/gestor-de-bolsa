@@ -143,8 +143,8 @@ class BolsaApp:
         now = datetime.datetime.now().time()
         
         # Definición de horarios
-        start_pre = datetime.time(8, 30)
-        start_open = datetime.time(9, 0)
+        start_pre = datetime.time(9, 00)
+        start_open = datetime.time(9, 30)
         start_close = datetime.time(17, 30)
         end_market = datetime.time(17, 45)
 
