@@ -3,7 +3,6 @@ from tkinter import messagebox
 import datetime
 import pandas as pd
 
-# Importamos módulos propios
 from . import api
 from . import utils
 from . import logic
@@ -15,166 +14,226 @@ class BolsaApp:
         self.root.title("Monitor de Bolsa - Finmarkets Pro")
         self.root.geometry("1100x900")
 
+        # Cargar datos
         self.archivo_json = "nombres.json"
         self.nombres_conocidos = utils.cargar_configuracion(self.archivo_json)
         
+        # Cargar Tema
+        self.theme = utils.cargar_tema("theme.json")
+
+        self.datos_busqueda = []
+        for nid, nombre in self.nombres_conocidos.items():
+            self.datos_busqueda.append({
+                "id": nid,
+                "nombre": nombre,
+                "label": f"{nombre} ({nid})",
+                "search": f"{nombre} {nid}".lower()
+            })
+
+        self.selected_id = "77447"
         self.df = None 
         self.chart_widget = None 
 
         self._init_ui()
 
     def _init_ui(self):
-        # Configurar grid principal
+        # Configurar colores base de la ventana
+        self.root.configure(fg_color=self.theme["window_bg"])
+        
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(2, weight=1) 
 
-        # PANEL DE CONTROL
-        control_frame = ctk.CTkFrame(self.root)
+        # --- PANEL DE CONTROL ---
+        control_frame = ctk.CTkFrame(self.root, fg_color=self.theme["frame_bg"])
         control_frame.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
+        control_frame.grid_columnconfigure(1, weight=1) 
+
+        ctk.CTkLabel(control_frame, text="Instrumento:", font=("Roboto", 14, "bold"), text_color=self.theme["text_main"]).grid(row=0, column=0, padx=15, pady=15, sticky="w")
+
+        self.entry_busqueda = ctk.CTkEntry(
+            control_frame, 
+            placeholder_text="Buscar...",
+            fg_color=self.theme["input_bg"],
+            text_color=self.theme["text_main"]
+        )
+        self.entry_busqueda.grid(row=0, column=1, padx=10, pady=15, sticky="ew")
         
-        ctk.CTkLabel(control_frame, text="Configuración de Consulta", font=("Roboto", 14, "bold")).grid(row=0, column=0, columnspan=5, pady=(10, 5), sticky="w", padx=15)
+        nombre_inicial = self.nombres_conocidos.get(self.selected_id, "ITAUCL")
+        self.entry_busqueda.insert(0, nombre_inicial)
 
-        ctk.CTkLabel(control_frame, text="ID Notación:").grid(row=1, column=0, padx=10, pady=10)
-        self.entry_id = ctk.CTkEntry(control_frame, width=140, placeholder_text="Ej: 77447")
-        self.entry_id.insert(0, "77447") 
-        self.entry_id.grid(row=1, column=1, padx=10, pady=10)
+        self.entry_busqueda.bind("<KeyRelease>", self._on_key_release)
+        self.entry_busqueda.bind("<FocusIn>", self._on_focus_in)
 
-        ctk.CTkLabel(control_frame, text="Periodo:").grid(row=1, column=2, padx=10, pady=10)
-        self.entry_span = ctk.CTkComboBox(control_frame, values=["1D", "5D", "1M", "3M", "6M", "1Y"], width=100)
+        ctk.CTkLabel(control_frame, text="Periodo:", text_color=self.theme["text_main"]).grid(row=0, column=2, padx=10, pady=15)
+        self.entry_span = ctk.CTkComboBox(
+            control_frame, 
+            values=["1D", "5D", "1M", "3M", "6M", "1Y"], 
+            width=80,
+            fg_color=self.theme["input_bg"],
+            text_color=self.theme["text_main"]
+        )
         self.entry_span.set("1D") 
-        self.entry_span.grid(row=1, column=3, padx=10, pady=10)
+        self.entry_span.grid(row=0, column=3, padx=10, pady=15)
 
-        self.btn_run = ctk.CTkButton(control_frame, text="Consultar Datos", command=self.ejecutar_consulta, fg_color="#1f6aa5")
-        self.btn_run.grid(row=1, column=4, padx=20, pady=10)
+        self.btn_run = ctk.CTkButton(
+            control_frame, 
+            text="Consultar", 
+            command=self.ejecutar_consulta, 
+            fg_color=self.theme["primary_button"],
+            hover_color=self.theme["primary_button_hover"],
+            text_color="white",
+            width=100
+        )
+        self.btn_run.grid(row=0, column=4, padx=15, pady=15)
 
-        self.btn_ver_lista = ctk.CTkButton(control_frame, text="Ver Lista", command=self.abrir_lista_codigos, fg_color="#444444")
-        self.btn_ver_lista.grid(row=1, column=5, padx=20, pady=10)
+        # --- LISTA FLOTANTE ---
+        self.lista_sugerencias = ctk.CTkScrollableFrame(
+            self.root, 
+            height=200, 
+            fg_color=self.theme["frame_bg"], 
+            corner_radius=5,
+            border_width=1,
+            border_color=self.theme["text_secondary"]
+        )
+        self.lista_sugerencias_visible = False
 
-        # CALCULADORA
-        calc_frame = ctk.CTkFrame(self.root)
+        # --- CALCULADORA ---
+        calc_frame = ctk.CTkFrame(self.root, fg_color=self.theme["frame_bg"])
         calc_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
 
-        ctk.CTkLabel(calc_frame, text="Calculadora de Inversión", font=("Roboto", 14, "bold")).grid(row=0, column=0, columnspan=7, pady=(10, 5), sticky="w", padx=15)
+        ctk.CTkLabel(calc_frame, text="Calculadora:", font=("Roboto", 14, "bold"), text_color=self.theme["text_main"]).grid(row=0, column=0, padx=15, pady=10)
 
-        ctk.CTkLabel(calc_frame, text="Monto ($):").grid(row=1, column=0, padx=10, pady=10)
-        self.entry_monto = ctk.CTkEntry(calc_frame, width=140, placeholder_text="100000")
-        self.entry_monto.grid(row=1, column=1, padx=10, pady=10)
+        self.entry_monto = ctk.CTkEntry(calc_frame, width=120, placeholder_text="Monto $", fg_color=self.theme["input_bg"], text_color=self.theme["text_main"])
+        self.entry_monto.grid(row=0, column=1, padx=10, pady=10)
 
-        ctk.CTkLabel(calc_frame, text="Fecha (YYYY-MM-DD HH:MM):").grid(row=1, column=2, padx=10, pady=10)
-        self.entry_fecha = ctk.CTkEntry(calc_frame, width=200)
-        self.entry_fecha.grid(row=1, column=3, padx=10, pady=10)
+        self.entry_fecha = ctk.CTkEntry(calc_frame, width=160, placeholder_text="YYYY-MM-DD HH:MM", fg_color=self.theme["input_bg"], text_color=self.theme["text_main"])
+        self.entry_fecha.grid(row=0, column=2, padx=10, pady=10)
         
-        ctk.CTkButton(calc_frame, text="Hoy", width=60, 
-                   command=lambda: self._set_hoy()
-                   ).grid(row=1, column=4, padx=5, pady=10)
+        ctk.CTkButton(
+            calc_frame, 
+            text="Hoy", 
+            width=50, 
+            command=self._set_hoy, 
+            fg_color=self.theme["secondary_button"],
+            hover_color=self.theme["secondary_button_hover"],
+            text_color=self.theme["text_main"]
+        ).grid(row=0, column=3, padx=5, pady=10)
 
-        ctk.CTkButton(calc_frame, text="Calcular", width=100, command=self.calcular_retorno, fg_color="green").grid(row=1, column=5, padx=20, pady=10)
+        ctk.CTkButton(calc_frame, text="Calcular", width=100, command=self.calcular_retorno, fg_color=self.theme["success"], text_color="white").grid(row=0, column=4, padx=20, pady=10)
         
-        self.lbl_resultado_calc = ctk.CTkLabel(calc_frame, text="---", font=("Roboto", 16, "bold"))
-        self.lbl_resultado_calc.grid(row=1, column=6, padx=20, pady=10)
+        self.lbl_resultado_calc = ctk.CTkLabel(calc_frame, text="---", font=("Roboto", 16, "bold"), text_color=self.theme["text_main"])
+        self.lbl_resultado_calc.grid(row=0, column=5, padx=20, pady=10)
 
-        # ESTADÍSTICAS Y GRÁFICO
-        plot_container = ctk.CTkFrame(self.root)
+        # --- GRÁFICO ---
+        plot_container = ctk.CTkFrame(self.root, fg_color="transparent") # Transparente para heredar el fondo principal
         plot_container.grid(row=2, column=0, padx=20, pady=(10, 20), sticky="nsew")
         plot_container.grid_rowconfigure(1, weight=1)
         plot_container.grid_columnconfigure(0, weight=1)
 
-        # Barra de estadísticas
         stats_frame = ctk.CTkFrame(plot_container, fg_color="transparent")
         stats_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         
-        self.lbl_precio = ctk.CTkLabel(stats_frame, text="Precio: ---", font=("Roboto", 20, "bold"))
+        self.lbl_precio = ctk.CTkLabel(stats_frame, text="Precio: ---", font=("Roboto", 20, "bold"), text_color=self.theme["text_main"])
         self.lbl_precio.pack(side="left", padx=20)
         
-        self.lbl_minmax = ctk.CTkLabel(stats_frame, text="Min/Max: ---", font=("Roboto", 12))
+        self.lbl_minmax = ctk.CTkLabel(stats_frame, text="Min/Max: ---", font=("Roboto", 12), text_color=self.theme["text_main"])
         self.lbl_minmax.pack(side="left", padx=20)
         
-        # LABEL DE ACTUALIZACIÓN
-        self.lbl_actualizacion = ctk.CTkLabel(stats_frame, text="Última act: ---", font=("Roboto", 10, "italic"), text_color="gray")
+        self.lbl_actualizacion = ctk.CTkLabel(stats_frame, text="Actualizado: ---", font=("Roboto", 10, "italic"), text_color=self.theme["text_secondary"])
         self.lbl_actualizacion.pack(side="right", padx=10)
 
-        # LABEL DE ESTADO DEL MERCADO
         self.lbl_estado_mercado = ctk.CTkLabel(stats_frame, text="---", font=("Roboto", 12, "bold"))
         self.lbl_estado_mercado.pack(side="right", padx=20)
 
-        # Gráfico
-        self.chart_frame = ctk.CTkFrame(plot_container)
+        self.chart_frame = ctk.CTkFrame(plot_container, fg_color=self.theme["frame_bg"])
         self.chart_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         
-        self.chart_widget = BolsaChart(self.chart_frame)
-
+        # Pasamos el tema al widget del gráfico
+        self.chart_widget = BolsaChart(self.chart_frame, self.theme)
         self._actualizar_estado_mercado()
 
+        self.root.bind("<Button-1>", self._check_click_outside)
+
+    # --- Métodos de Buscador ---
+    def _on_key_release(self, event):
+        texto = self.entry_busqueda.get().lower()
+        self._actualizar_sugerencias(texto)
+
+    def _on_focus_in(self, event):
+        self._actualizar_sugerencias(self.entry_busqueda.get().lower())
+
+    def _actualizar_sugerencias(self, texto_filtro):
+        for widget in self.lista_sugerencias.winfo_children():
+            widget.destroy()
+
+        count = 0
+        limit = 30 
+        for item in self.datos_busqueda:
+            if count >= limit: break
+            if texto_filtro in item["search"]:
+                btn = ctk.CTkButton(
+                    self.lista_sugerencias,
+                    text=item["label"],
+                    anchor="w",
+                    fg_color="transparent",
+                    text_color=self.theme["text_main"],
+                    hover_color=self.theme["list_hover"],
+                    height=25,
+                    command=lambda i=item: self._seleccionar_item(i)
+                )
+                btn.pack(fill="x", padx=2, pady=1)
+                count += 1
+        if count > 0: self._mostrar_lista()
+        else: self._ocultar_lista()
+
+    def _mostrar_lista(self):
+        x = self.entry_busqueda.winfo_x() + 20 
+        y = self.entry_busqueda.winfo_y() + self.entry_busqueda.winfo_height() + 25
+        w = self.entry_busqueda.winfo_width()
+        self.lista_sugerencias.configure(width=w, height=200)
+        self.lista_sugerencias.place(x=x, y=y)
+        self.lista_sugerencias.lift() 
+        self.lista_sugerencias_visible = True
+
+    def _ocultar_lista(self):
+        self.lista_sugerencias.place_forget()
+        self.lista_sugerencias_visible = False
+
+    def _seleccionar_item(self, item):
+        self.selected_id = item["id"]
+        self.entry_busqueda.delete(0, "end")
+        self.entry_busqueda.insert(0, item["nombre"])
+        self._ocultar_lista()
+
+    def _check_click_outside(self, event):
+        if self.lista_sugerencias_visible:
+            try:
+                widget_under_mouse = self.root.winfo_containing(event.x_root, event.y_root)
+                if widget_under_mouse is not self.entry_busqueda and \
+                   not str(widget_under_mouse).startswith(str(self.lista_sugerencias)):
+                    self._ocultar_lista()
+            except: pass
+
+    # --- Lógica ---
     def _set_hoy(self):
         self.entry_fecha.delete(0, "end")
         self.entry_fecha.insert(0, datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 
     def ejecutar_consulta(self):
-        id_nota = self.entry_id.get()
         time_span = self.entry_span.get()
-        
-        if not id_nota or not time_span:
-            messagebox.showerror("Error", "Faltan datos")
+        if not self.selected_id:
+            messagebox.showwarning("Atención", "Selecciona un instrumento.")
             return
 
         try:
-            self.df = api.obtener_datos_mercado(id_nota, time_span)
+            self.df = api.obtener_datos_mercado(self.selected_id, time_span)
             self.update_stats()
-            
-            nombre = self.nombres_conocidos.get(id_nota, f"ID: {id_nota}")
+            nombre = self.nombres_conocidos.get(self.selected_id, self.selected_id)
             self.chart_widget.draw_chart(self.df, nombre)
-
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Error", f"Error: {str(e)}")
 
-        self.root.after(60000, self.ejecutar_consulta)
         self._actualizar_estado_mercado()
-    
-    def abrir_lista_codigos(self):
-        """Abre una ventana flotante con la lista de códigos."""
-        ventana_lista = ctk.CTkToplevel(self.root)
-        ventana_lista.title("Códigos Guardados")
-        ventana_lista.geometry("400x500")
-        
-        ventana_lista.attributes("-topmost", True)
-        
-        lbl_titulo = ctk.CTkLabel(ventana_lista, text="Selecciona un Instrumento", font=("Roboto", 16, "bold"))
-        lbl_titulo.pack(pady=10)
-
-        scroll_frame = ctk.CTkScrollableFrame(ventana_lista, width=350, height=400)
-        scroll_frame.pack(padx=10, pady=10, fill="both", expand=True)
-
-        ctk.CTkLabel(scroll_frame, text="ID", font=("Roboto", 12, "bold")).grid(row=0, column=0, padx=5, sticky="w")
-        ctk.CTkLabel(scroll_frame, text="NOMBRE / NEMO", font=("Roboto", 12, "bold")).grid(row=0, column=1, padx=5, sticky="w")
-
-        row = 1
-        for id_nota, nombre in self.nombres_conocidos.items():
-            btn_id = ctk.CTkButton(
-                scroll_frame, 
-                text=id_nota, 
-                width=70, 
-                height=25,
-                fg_color="transparent", 
-                border_width=1,
-                border_color="gray",
-                hover_color="#333333",
-                command=lambda i=id_nota, w=ventana_lista: self._seleccionar_desde_lista(i, w)
-            )
-            btn_id.grid(row=row, column=0, padx=5, pady=3)
-
-            lbl_nombre = ctk.CTkLabel(scroll_frame, text=nombre, anchor="w")
-            lbl_nombre.grid(row=row, column=1, padx=10, pady=3, sticky="w")
-            
-            row += 1
-
-    def _seleccionar_desde_lista(self, id_nota, ventana):
-        """Callback al hacer clic en un botón de la lista."""
-        self.entry_id.delete(0, "end")
-        self.entry_id.insert(0, id_nota)
-        
-        self.ejecutar_consulta() 
-        
-        ventana.destroy()
 
     def update_stats(self):
         if self.df is None: return
@@ -184,59 +243,45 @@ class BolsaApp:
         
         self.lbl_precio.configure(text=f"Precio: ${ultimo:,.2f}")
         self.lbl_minmax.configure(text=f"Min: ${minimo:,.2f} | Max: ${maximo:,.2f}")
-
-        hora_actual = datetime.datetime.now().strftime("%H:%M:%S")
-        self.lbl_actualizacion.configure(text=f"Última actualización: {hora_actual}")
+        self.lbl_actualizacion.configure(text=f"Actualizado: {datetime.datetime.now().strftime('%H:%M:%S')}")
 
     def _actualizar_estado_mercado(self):
         now = datetime.datetime.now().time()
-        
-        # Definición de horarios
         start_pre = datetime.time(9, 00)
         start_open = datetime.time(9, 30)
         start_close = datetime.time(15, 45)
         end_market = datetime.time(16, 00)
 
         if start_pre <= now < start_open:
-            texto = "🟡 Pre-apertura"
-            color = "#E5C07B"
+            texto, color_key = "🟡 Pre-apertura", "status_pre"
         elif start_open <= now < start_close:
-            texto = "🟢 Mercado Abierto"
-            color = "#98C379"
+            texto, color_key = "🟢 Mercado Abierto", "status_open"
         elif start_close <= now < end_market:
-            texto = "🔴 Cierre (Subasta)"
-            color = "#E06C75"
+            texto, color_key = "🔴 Cierre (Subasta)", "status_close"
         else:
-            texto = "🌑 Mercado Cerrado"
-            color = "gray"
+            texto, color_key = "🌑 Mercado Cerrado", "status_off"
 
-        self.lbl_estado_mercado.configure(text=texto, text_color=color)
+        # Aplicamos el color del tema
+        self.lbl_estado_mercado.configure(text=texto, text_color=self.theme[color_key])
 
     def calcular_retorno(self):
         if self.df is None: 
-            messagebox.showwarning("Error", "Primero carga datos.")
+            messagebox.showwarning("Error", "Carga datos primero.")
             return
         
         try:
-            monto_str = self.entry_monto.get()
-            if not monto_str: raise ValueError
-            monto = float(monto_str)
+            monto = float(self.entry_monto.get())
             fecha_obj = datetime.datetime.strptime(self.entry_fecha.get(), "%Y-%m-%d %H:%M")
         except ValueError:
-            messagebox.showerror("Error", "Revisa monto o fecha")
+            messagebox.showerror("Error", "Datos inválidos.")
             return
 
         resultados = logic.calcular_ganancia_historica(self.df, monto, fecha_obj)
-        
         ganancia = resultados["ganancia"]
         pct = resultados["porcentaje"]
         
-        color = "#2cc985" if ganancia >= 0 else "#ff4d4d"
+        color = self.theme["success"] if ganancia >= 0 else self.theme["danger"]
         self.lbl_resultado_calc.configure(text=f"${ganancia:,.0f} ({pct:.2f}%)", text_color=color)
         
-        nombre = self.nombres_conocidos.get(self.entry_id.get(), "")
-        self.chart_widget.draw_chart(
-            self.df, 
-            nombre, 
-            compra_point=(resultados["fecha_encontrada"], resultados["precio_compra"])
-        )
+        nombre = self.nombres_conocidos.get(self.selected_id, "")
+        self.chart_widget.draw_chart(self.df, nombre, compra_point=(resultados["fecha_encontrada"], resultados["precio_compra"]))

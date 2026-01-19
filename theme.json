@@ -1,0 +1,27 @@
+{
+    "window_bg":                ["#ebebeb", "#242424"],
+    "frame_bg":                 ["#ffffff", "#2b2b2b"],
+    "text_main":                ["#000000", "#ffffff"],
+    "text_secondary":           ["#555555", "#aaaaaa"],
+    
+    "primary_button":           ["#3B8ED0", "#1f6aa5"],
+    "primary_button_hover":     ["#36719F", "#144870"],
+    
+    "secondary_button":         ["#dce4ee", "#444444"],
+    "secondary_button_hover":   ["#cfd6e6", "#333333"],
+    
+    "success":                  ["#2cc985", "#2cc985"],
+    "danger":                   ["#ff4d4d", "#ff4d4d"],
+    
+    "chart_line":               ["#3B8ED0", "#3B8ED0"],
+    "chart_buy_marker":         ["#ff4d4d", "#ff4d4d"],
+    "chart_grid":               ["#cccccc", "#555555"],
+    
+    "input_bg":                 ["#ffffff", "#343638"],
+    "list_hover":               ["#eeeeee", "#333333"],
+    
+    "status_open":              ["#2d8a2d", "#98C379"],
+    "status_pre":               ["#bfa306", "#E5C07B"],
+    "status_close":             ["#c92a2a", "#E06C75"],
+    "status_off":               ["#808080", "#808080"]
+}
