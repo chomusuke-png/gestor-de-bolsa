@@ -145,8 +145,8 @@ class BolsaApp:
         # Definición de horarios
         start_pre = datetime.time(9, 00)
         start_open = datetime.time(9, 30)
-        start_close = datetime.time(17, 30)
-        end_market = datetime.time(17, 45)
+        start_close = datetime.time(15, 45)
+        end_market = datetime.time(16, 00)
 
         if start_pre <= now < start_open:
             texto = "🟡 Pre-apertura"
