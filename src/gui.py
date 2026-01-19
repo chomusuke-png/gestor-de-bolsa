@@ -29,21 +29,29 @@ class BolsaApp:
 
     def _init_ui(self):
         self.root.configure(fg_color=self.theme["window_bg"])
+        
+        # Configuración del Grid Principal
         self.root.grid_columnconfigure(0, weight=1)
-        self.root.grid_rowconfigure(2, weight=1) 
+        self.root.grid_rowconfigure(2, weight=1) # El gráfico (fila 2) se expande
 
-        # --- PANEL DE CONTROL ---
+        # --- PANEL DE CONTROL (Fila 0) ---
         control_frame = ctk.CTkFrame(self.root, fg_color=self.theme["frame_bg"])
         control_frame.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
+        
+        # Hacemos que la columna 1 (Buscador) se expanda
         control_frame.grid_columnconfigure(1, weight=1) 
+        control_frame.grid_columnconfigure((0, 2, 3, 4), weight=0) # Los demás fijos
 
-        ctk.CTkLabel(control_frame, text="Instrumento:", font=("Roboto", 14, "bold"), text_color=self.theme["text_main"]).grid(row=0, column=0, padx=15, pady=15, sticky="w")
+        # 0. Label Instrumento
+        ctk.CTkLabel(control_frame, text="Instrumento:", font=("Roboto", 14, "bold"), text_color=self.theme["text_main"]).grid(row=0, column=0, padx=(20, 10), pady=15, sticky="w")
 
+        # 1. Buscador (Expandible)
         self.entry_busqueda = ctk.CTkEntry(
             control_frame, 
-            placeholder_text="Buscar...",
+            placeholder_text="Buscar empresa, nemo o ID...",
             fg_color=self.theme["input_bg"],
-            text_color=self.theme["text_main"]
+            text_color=self.theme["text_main"],
+            height=35
         )
         self.entry_busqueda.grid(row=0, column=1, padx=10, pady=15, sticky="ew")
         
@@ -53,17 +61,22 @@ class BolsaApp:
         self.entry_busqueda.bind("<KeyRelease>", self._on_key_release)
         self.entry_busqueda.bind("<FocusIn>", self._on_focus_in)
 
+        # 2. Label Periodo
         ctk.CTkLabel(control_frame, text="Periodo:", text_color=self.theme["text_main"]).grid(row=0, column=2, padx=10, pady=15)
+
+        # 3. ComboBox Periodo
         self.entry_span = ctk.CTkComboBox(
             control_frame, 
             values=["1D", "5D", "1M", "3M", "6M", "1Y"], 
             width=80,
+            height=35,
             fg_color=self.theme["input_bg"],
             text_color=self.theme["text_main"]
         )
         self.entry_span.set("1D") 
         self.entry_span.grid(row=0, column=3, padx=10, pady=15)
 
+        # 4. Botón Consultar
         self.btn_run = ctk.CTkButton(
             control_frame, 
             text="Consultar", 
@@ -71,9 +84,10 @@ class BolsaApp:
             fg_color=self.theme["primary_button"],
             hover_color=self.theme["primary_button_hover"],
             text_color="white",
-            width=100
+            width=120,
+            height=35
         )
-        self.btn_run.grid(row=0, column=4, padx=15, pady=15)
+        self.btn_run.grid(row=0, column=4, padx=(10, 20), pady=15)
 
         # --- LISTA FLOTANTE ---
         self.lista_sugerencias = ctk.CTkScrollableFrame(
@@ -86,56 +100,73 @@ class BolsaApp:
         )
         self.lista_sugerencias_visible = False
 
-        # --- CALCULADORA ---
+        # --- CALCULADORA (Fila 1) ---
         calc_frame = ctk.CTkFrame(self.root, fg_color=self.theme["frame_bg"])
         calc_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
-
-        ctk.CTkLabel(calc_frame, text="Calculadora:", font=("Roboto", 14, "bold"), text_color=self.theme["text_main"]).grid(row=0, column=0, padx=15, pady=10)
-
-        self.entry_monto = ctk.CTkEntry(calc_frame, width=120, placeholder_text="Monto $", fg_color=self.theme["input_bg"], text_color=self.theme["text_main"])
-        self.entry_monto.grid(row=0, column=1, padx=10, pady=10)
-
-        self.entry_fecha = ctk.CTkEntry(calc_frame, width=160, placeholder_text="YYYY-MM-DD HH:MM", fg_color=self.theme["input_bg"], text_color=self.theme["text_main"])
-        self.entry_fecha.grid(row=0, column=2, padx=10, pady=10)
         
+        # Configuración grid calculadora:
+        # Col 0: Label, Col 1: Monto, Col 2: Fecha Label, Col 3: Fecha (Expand), Col 4: Hoy, Col 5: Calc, Col 6: Res
+        calc_frame.grid_columnconfigure(3, weight=1) 
+
+        # 0. Label Calc
+        ctk.CTkLabel(calc_frame, text="Calculadora:", font=("Roboto", 14, "bold"), text_color=self.theme["text_main"]).grid(row=0, column=0, padx=(20, 10), pady=15, sticky="w")
+
+        # 1. Entry Monto
+        self.entry_monto = ctk.CTkEntry(calc_frame, width=120, height=35, placeholder_text="Monto $", fg_color=self.theme["input_bg"], text_color=self.theme["text_main"])
+        self.entry_monto.grid(row=0, column=1, padx=5, pady=15)
+
+        # 2. Label Fecha
+        ctk.CTkLabel(calc_frame, text="Fecha:", text_color=self.theme["text_main"]).grid(row=0, column=2, padx=(15, 5), pady=15)
+
+        # 3. Entry Fecha (Expandible)
+        self.entry_fecha = ctk.CTkEntry(calc_frame, height=35, placeholder_text="YYYY-MM-DD HH:MM", fg_color=self.theme["input_bg"], text_color=self.theme["text_main"])
+        self.entry_fecha.grid(row=0, column=3, padx=5, pady=15, sticky="ew")
+        
+        # 4. Botón Hoy
         ctk.CTkButton(
             calc_frame, 
             text="Hoy", 
-            width=50, 
+            width=60, 
+            height=35,
             command=self._set_hoy, 
             fg_color=self.theme["secondary_button"],
             hover_color=self.theme["secondary_button_hover"],
             text_color=self.theme["text_main"]
-        ).grid(row=0, column=3, padx=5, pady=10)
+        ).grid(row=0, column=4, padx=5, pady=15)
 
-        ctk.CTkButton(calc_frame, text="Calcular", width=100, command=self.calcular_retorno, fg_color=self.theme["success"], text_color="white").grid(row=0, column=4, padx=20, pady=10)
+        # 5. Botón Calcular
+        ctk.CTkButton(calc_frame, text="Calcular", width=100, height=35, command=self.calcular_retorno, fg_color=self.theme["success"], text_color="white").grid(row=0, column=5, padx=10, pady=15)
         
+        # 6. Resultado
         self.lbl_resultado_calc = ctk.CTkLabel(calc_frame, text="---", font=("Roboto", 16, "bold"), text_color=self.theme["text_main"])
-        self.lbl_resultado_calc.grid(row=0, column=5, padx=20, pady=10)
+        self.lbl_resultado_calc.grid(row=0, column=6, padx=(10, 20), pady=15)
 
-        # --- GRÁFICO ---
+        # --- GRÁFICO (Fila 2) ---
         plot_container = ctk.CTkFrame(self.root, fg_color="transparent") 
         plot_container.grid(row=2, column=0, padx=20, pady=(10, 20), sticky="nsew")
         plot_container.grid_rowconfigure(1, weight=1)
         plot_container.grid_columnconfigure(0, weight=1)
 
-        stats_frame = ctk.CTkFrame(plot_container, fg_color="transparent")
-        stats_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        # Barra de estadísticas
+        stats_frame = ctk.CTkFrame(plot_container, fg_color="transparent", height=40)
+        stats_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(0, 5))
+        # Usamos pack para la barra de estado, es más flexible para alineación izq/der
         
         self.lbl_precio = ctk.CTkLabel(stats_frame, text="Precio: ---", font=("Roboto", 20, "bold"), text_color=self.theme["text_main"])
-        self.lbl_precio.pack(side="left", padx=20)
+        self.lbl_precio.pack(side="left", padx=10)
         
         self.lbl_minmax = ctk.CTkLabel(stats_frame, text="Min/Max: ---", font=("Roboto", 12), text_color=self.theme["text_main"])
-        self.lbl_minmax.pack(side="left", padx=20)
+        self.lbl_minmax.pack(side="left", padx=15)
+        
+        self.lbl_estado_mercado = ctk.CTkLabel(stats_frame, text="---", font=("Roboto", 12, "bold"))
+        self.lbl_estado_mercado.pack(side="right", padx=10)
         
         self.lbl_actualizacion = ctk.CTkLabel(stats_frame, text="Actualizado: ---", font=("Roboto", 10, "italic"), text_color=self.theme["text_secondary"])
-        self.lbl_actualizacion.pack(side="right", padx=10)
+        self.lbl_actualizacion.pack(side="right", padx=15)
 
-        self.lbl_estado_mercado = ctk.CTkLabel(stats_frame, text="---", font=("Roboto", 12, "bold"))
-        self.lbl_estado_mercado.pack(side="right", padx=20)
-
+        # Marco del Gráfico
         self.chart_frame = ctk.CTkFrame(plot_container, fg_color=self.theme["frame_bg"])
-        self.chart_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        self.chart_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
         
         self.chart_widget = BolsaChart(self.chart_frame, self.theme)
         self._actualizar_estado_mercado()
@@ -175,9 +206,12 @@ class BolsaApp:
         else: self._ocultar_lista()
 
     def _mostrar_lista(self):
+        # Ajuste preciso de la posición
         x = self.entry_busqueda.winfo_x() + 20 
-        y = self.entry_busqueda.winfo_y() + self.entry_busqueda.winfo_height() + 25
+        # Sumamos la altura del entry + un pequeño padding
+        y = self.entry_busqueda.winfo_y() + self.entry_busqueda.winfo_height() + 25 
         w = self.entry_busqueda.winfo_width()
+        
         self.lista_sugerencias.configure(width=w, height=200)
         self.lista_sugerencias.place(x=x, y=y)
         self.lista_sugerencias.lift() 
