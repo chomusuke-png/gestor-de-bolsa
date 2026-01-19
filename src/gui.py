@@ -14,21 +14,12 @@ class BolsaApp:
         self.root.title("Monitor de Bolsa - Finmarkets Pro")
         self.root.geometry("1100x900")
 
-        # Cargar datos
+        # Cargar datos y tema
         self.archivo_json = "nombres.json"
         self.nombres_conocidos = utils.cargar_configuracion(self.archivo_json)
-        
-        # Cargar Tema
         self.theme = utils.cargar_tema("theme.json")
 
-        self.datos_busqueda = []
-        for nid, nombre in self.nombres_conocidos.items():
-            self.datos_busqueda.append({
-                "id": nid,
-                "nombre": nombre,
-                "label": f"{nombre} ({nid})",
-                "search": f"{nombre} {nid}".lower()
-            })
+        self.datos_busqueda = logic.preparar_datos_busqueda(self.nombres_conocidos)
 
         self.selected_id = "77447"
         self.df = None 
@@ -37,9 +28,7 @@ class BolsaApp:
         self._init_ui()
 
     def _init_ui(self):
-        # Configurar colores base de la ventana
         self.root.configure(fg_color=self.theme["window_bg"])
-        
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(2, weight=1) 
 
@@ -125,7 +114,7 @@ class BolsaApp:
         self.lbl_resultado_calc.grid(row=0, column=5, padx=20, pady=10)
 
         # --- GRÁFICO ---
-        plot_container = ctk.CTkFrame(self.root, fg_color="transparent") # Transparente para heredar el fondo principal
+        plot_container = ctk.CTkFrame(self.root, fg_color="transparent") 
         plot_container.grid(row=2, column=0, padx=20, pady=(10, 20), sticky="nsew")
         plot_container.grid_rowconfigure(1, weight=1)
         plot_container.grid_columnconfigure(0, weight=1)
@@ -148,13 +137,12 @@ class BolsaApp:
         self.chart_frame = ctk.CTkFrame(plot_container, fg_color=self.theme["frame_bg"])
         self.chart_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         
-        # Pasamos el tema al widget del gráfico
         self.chart_widget = BolsaChart(self.chart_frame, self.theme)
         self._actualizar_estado_mercado()
 
         self.root.bind("<Button-1>", self._check_click_outside)
 
-    # --- Métodos de Buscador ---
+    # --- Métodos de Interfaz ---
     def _on_key_release(self, event):
         texto = self.entry_busqueda.get().lower()
         self._actualizar_sugerencias(texto)
@@ -214,7 +202,6 @@ class BolsaApp:
                     self._ocultar_lista()
             except: pass
 
-    # --- Lógica ---
     def _set_hoy(self):
         self.entry_fecha.delete(0, "end")
         self.entry_fecha.insert(0, datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
@@ -246,22 +233,7 @@ class BolsaApp:
         self.lbl_actualizacion.configure(text=f"Actualizado: {datetime.datetime.now().strftime('%H:%M:%S')}")
 
     def _actualizar_estado_mercado(self):
-        now = datetime.datetime.now().time()
-        start_pre = datetime.time(9, 00)
-        start_open = datetime.time(9, 30)
-        start_close = datetime.time(15, 45)
-        end_market = datetime.time(16, 00)
-
-        if start_pre <= now < start_open:
-            texto, color_key = "🟡 Pre-apertura", "status_pre"
-        elif start_open <= now < start_close:
-            texto, color_key = "🟢 Mercado Abierto", "status_open"
-        elif start_close <= now < end_market:
-            texto, color_key = "🔴 Cierre (Subasta)", "status_close"
-        else:
-            texto, color_key = "🌑 Mercado Cerrado", "status_off"
-
-        # Aplicamos el color del tema
+        texto, color_key = logic.obtener_estado_mercado()
         self.lbl_estado_mercado.configure(text=texto, text_color=self.theme[color_key])
 
     def calcular_retorno(self):
